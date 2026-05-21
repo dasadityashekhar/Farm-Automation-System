@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Advanced Automated Farm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            transition: 0.3s;
+        }
+
+        /* 🌿 DARK GREEN THEME */
+        body.dark {
+            background: linear-gradient(135deg, #0f2027, #203a2e, #0b3d2e);
+            color: #e8f5e9;
+        }
+
+        /* ☀️ LIGHT MODE */
+        body.light {
+            background: #f1f8f4;
+            color: #1b5e20;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 15px;
+            margin: 0;
+        }
+
+        .header {
+            position: relative;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #2e7d32;
+            color: white;
+        }
+
+        .container {
+            padding: 15px;
+        }
+
+        .top-section {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            padding: 20px;
+            border-radius: 15px;
+            flex: 1;
+            min-width: 250px;
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.08);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .camera iframe {
+            width: 100%;
+            height: 300px;
+            border-radius: 12px;
+            border: none;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-card {
+            text-align: center;
+        }
+
+        .toggle {
+            margin-top: 15px;
+            padding: 14px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #c62828;
+            color: white;
+        }
+
+        .toggle.on {
+            background: #2e7d32;
+            box-shadow: 0 0 15px #66bb6a;
+        }
+
+        .status-dot {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+
+<body class="dark">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>🌾 Smart Automated Farm</h1>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+    </div>
+
+    <div class="container">
+
+        <div class="top-section">
+
+            <!-- 🌧️ Rain Status -->
+            <div class="card">
+                <h2>🌧️ Rain Status</h2>
+                <p id="rain"><span class="status-dot">🟢</span> Checking...</p>
+            </div>
+
+            <!-- 🎥 Camera -->
+            <div class="card camera">
+                <h2>🎥 Live Surveillance</h2>
+
+                <!-- 🔴 PUT ESP32-CAM IP HERE -->
+                <!-- Example: http://192.168.137.140 -->
+                <iframe src="http://192.168.137.140"></iframe>
+
+            </div>
+
+        </div>
+
+        <div class="controls">
+
+            <div class="card control-card">
+                <h3>💧 Irrigation Pump</h3>
+                <button class="toggle" id="pumpBtn">OFF</button>
+            </div>
+
+            <div class="card control-card">
+                <h3>💡 Fly Trap Light</h3>
+                <button class="toggle" id="ledBtn">OFF</button>
+            </div>
+
+            <div class="card control-card">
+                <h3>🔊 Animal Alert</h3>
+                <button class="toggle" id="buzzerBtn">OFF</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // 🔴 PUT ESP32 MAIN CONTROLLER IP HERE (NOT CAMERA)
+        // This ESP32 controls pump, LED, buzzer, rain sensor
+        // Example: http://192.168.137.243
+        const ESP_IP = "http://192.168.137.243";
+
+        let pumpState = false;
+        let ledState = false;
+        let buzzerState = false;
+
+        function toggleTheme() {
+            document.body.classList.toggle("light");
+            document.body.classList.toggle("dark");
+        }
+
+        function updateButton(btn, state) {
+            btn.innerText = state ? "ON" : "OFF";
+            btn.classList.toggle("on", state);
+        }
+
+        // 💧 Pump → ESP32 MAIN
+        document.getElementById("pumpBtn").onclick = async function () {
+            pumpState = !pumpState;
+            updateButton(this, pumpState);
+            await fetch(ESP_IP + (pumpState ? "/pump/on" : "/pump/off"));
+        };
+
+        // 💡 LED → ESP32 MAIN
+        document.getElementById("ledBtn").onclick = async function () {
+            ledState = !ledState;
+            updateButton(this, ledState);
+            await fetch(ESP_IP + (ledState ? "/led/on" : "/led/off"));
+        };
+
+        // 🔊 Buzzer → ESP32 MAIN
+        document.getElementById("buzzerBtn").onclick = async function () {
+            buzzerState = !buzzerState;
+            updateButton(this, buzzerState);
+            await fetch(ESP_IP + (buzzerState ? "/buzzer/on" : "/buzzer/off"));
+        };
+
+        // 🌧️ Rain Sensor → ESP32 MAIN
+        async function updateRain() {
+            try {
+                let res = await fetch(ESP_IP + "/rain");
+                let data = await res.text();
+
+                let rainText = document.getElementById("rain");
+
+                if (data.includes("RAIN=1")) {
+                    rainText.innerHTML = "<span class='status-dot'>🔴</span> It's raining 🌧️";
+                } else {
+                    rainText.innerHTML = "<span class='status-dot'>🟢</span> No rain ☀️";
+                }
+            } catch {
+                console.log("Rain fetch error");
+            }
+        }
+
+        setInterval(updateRain, 3000);
+        updateRain();
+    </script>
+
+</body>
+</html>
